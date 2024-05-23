@@ -1,10 +1,10 @@
-mod in_memory_cache;
+use std::io::prelude::*;
+use std::net::TcpListener;
+use std::net::TcpStream;
+
 use in_memory_cache::InMemoryCache;
 
-
-use std::net::TcpListener;
-use std::io::prelude::*;
-use std::net::TcpStream;
+mod in_memory_cache;
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:3000").unwrap();
@@ -30,7 +30,7 @@ fn handle_connection(mut stream: TcpStream) {
             let mut cache = InMemoryCache::new();
 
             let value = cache.resolve(path, format!("Unicorn {path}").as_str(), 10);
-            let response = format!("HTTP/1.1 200 OK\r\n\r\n{value}");
+            let response = format!("HTTP/1.1 200 OK\r\n\r\n{}", value.unwrap());
             stream.write_all(response.as_bytes()).unwrap();
             stream.flush().unwrap();
         }
