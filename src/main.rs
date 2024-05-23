@@ -17,7 +17,7 @@ fn main() {
 
 fn handle_connection(mut stream: TcpStream) {
     let mut buffer = [0; 1024];
-    stream.read(&mut buffer).unwrap();
+    stream.read_exact(&mut buffer).unwrap();
 
     let get_request_line = buffer
         .split(|&b| b == b'\r' || b == b'\n')
@@ -31,7 +31,7 @@ fn handle_connection(mut stream: TcpStream) {
 
             let value = cache.resolve(path, format!("Unicorn {path}").as_str(), 10);
             let response = format!("HTTP/1.1 200 OK\r\n\r\n{value}");
-            stream.write(response.as_bytes()).unwrap();
+            stream.write_all(response.as_bytes()).unwrap();
             stream.flush().unwrap();
         }
     }
