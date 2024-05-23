@@ -5,6 +5,7 @@ use std::net::TcpStream;
 use in_memory_cache::InMemoryCache;
 
 mod in_memory_cache;
+mod kv_cache;
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:3000").unwrap();
