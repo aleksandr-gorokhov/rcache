@@ -1,6 +1,6 @@
 use redis::{Client, Commands, Connection, RedisError};
 
-use crate::cache_service::ResolvePayload;
+use crate::SetPayload;
 
 pub struct KvCache {
     con: Connection,
@@ -27,7 +27,7 @@ impl KvCache {
         Ok(KvCache { con })
     }
 
-    pub fn resolve(&mut self, payload: ResolvePayload) -> Result<String, KvError> {
+    pub fn set(&mut self, payload: SetPayload) -> Result<String, KvError> {
         let res: String = self.con.get(payload.key).unwrap_or_else(|_| "".to_string());
         if res.is_empty() {
             self.con
@@ -45,6 +45,11 @@ impl KvCache {
         }
         Some(res)
     }
+
+    pub fn unset(&mut self, key: &str) -> Result<(), KvError> {
+        self.con.del(key).map_err(KvError::CommandFailed)?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -52,13 +57,8 @@ mod tests {
     use super::*;
 
     impl KvCache {
-        fn set(&mut self, key: &str, value: &str) -> Result<(), KvError> {
+        fn set_raw(&mut self, key: &str, value: &str) -> Result<(), KvError> {
             self.con.set(key, value).map_err(KvError::CommandFailed)?;
-            Ok(())
-        }
-
-        fn unset(&mut self, key: &str) -> Result<(), KvError> {
-            self.con.del(key).map_err(KvError::CommandFailed)?;
             Ok(())
         }
     }
@@ -75,7 +75,7 @@ mod tests {
         let mut cache = KvCache::new("redis://127.0.0.1:6379")
             .expect("Should establish connection with no problem");
         let res = cache
-            .resolve(ResolvePayload {
+            .set(SetPayload {
                 key,
                 value: "",
                 ttl: 1,
@@ -90,9 +90,9 @@ mod tests {
         let key = "foo2";
         let mut cache = KvCache::new("redis://127.0.0.1:6379")
             .expect("Should establish connection with no problem");
-        cache.set(key, "42").expect("Should not fail");
+        cache.set_raw(key, "42").expect("Should not fail");
         let res = cache
-            .resolve(ResolvePayload {
+            .set(SetPayload {
                 key,
                 value: "42",
                 ttl: 1,
@@ -115,7 +115,7 @@ mod tests {
             .expect("Should establish connection with no problem");
 
         cache
-            .resolve(ResolvePayload {
+            .set(SetPayload {
                 key,
                 value: "42",
                 ttl: 1,
@@ -126,6 +126,6 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_secs(2));
         let res = cache.get(key);
         teardown(key);
-        assert!(matches!(res, None));
+        assert!(res.is_none());
     }
 }

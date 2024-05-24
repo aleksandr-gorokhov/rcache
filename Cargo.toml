@@ -5,3 +5,7 @@ edition = "2021"
 
 [dependencies]
 redis = "0.25.3"
+
+[lib]
+name = "cache_service"
+path = "src/lib.rs"

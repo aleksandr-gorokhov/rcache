@@ -1,21 +1,24 @@
-use crate::{in_memory_cache, kv_cache};
 use crate::in_memory_cache::InMemoryCache;
 use crate::kv_cache::KvCache;
 
-pub struct ResolvePayload<'a> {
+pub mod in_memory_cache;
+pub mod kv_cache;
+
+pub struct SetPayload<'a> {
     pub key: &'a str,
     pub value: &'a str,
     pub ttl: u64,
 }
 
-struct CacheService {
+#[allow(dead_code)]
+pub struct CacheService {
     in_memory_cache: InMemoryCache,
     kv_cache: KvCache,
     ttl: u64,
 }
 
 #[derive(Debug)]
-enum CacheServiceError {
+pub enum CacheServiceError {
     InMemoryCacheError(in_memory_cache::InMemoryCacheError),
     KvCacheError(kv_cache::KvError),
 }
@@ -47,22 +50,21 @@ impl CacheService {
         let value = resolver();
 
         self.kv_cache
-            .resolve(ResolvePayload {
+            .set(SetPayload {
                 key,
                 value: &value,
                 ttl: self.ttl,
             })
             .map_err(CacheServiceError::KvCacheError)?;
 
-        let val = self
-            .in_memory_cache
-            .resolve(ResolvePayload {
+        self.in_memory_cache
+            .set(SetPayload {
                 key,
                 value: &value,
                 ttl: self.ttl,
             })
             .map_err(CacheServiceError::InMemoryCacheError)?;
-        println!("Value: {}", val);
+
         Ok(value)
     }
 }
@@ -83,7 +85,7 @@ mod tests {
         let mut cache = CacheService::new(10);
         cache
             .in_memory_cache
-            .resolve(ResolvePayload {
+            .set(SetPayload {
                 key: "key",
                 value: "value",
                 ttl: 10,
@@ -99,7 +101,7 @@ mod tests {
         let mut cache = CacheService::new(10);
         cache
             .kv_cache
-            .resolve(ResolvePayload {
+            .set(SetPayload {
                 key: "key",
                 value: "value",
                 ttl: 10,
@@ -113,9 +115,9 @@ mod tests {
     #[test]
     fn should_set_value_to_memory_cache() {
         let mut cache = CacheService::new(10);
-        cache.resolve("key", || "value".to_string()).unwrap();
-
-        let in_memory_value = cache.in_memory_cache.get("key").unwrap();
+        cache.resolve("memkey", || "value".to_string()).unwrap();
+        cache.kv_cache.unset("memkey").unwrap();
+        let in_memory_value = cache.in_memory_cache.get("memkey").unwrap();
 
         assert_eq!(in_memory_value, "value");
     }
@@ -123,10 +125,10 @@ mod tests {
     #[test]
     fn should_set_value_to_kv_cache() {
         let mut cache = CacheService::new(10);
-        cache.resolve("key", || "value".to_string()).unwrap();
+        cache.resolve("kvkey", || "kvval".to_string()).unwrap();
 
-        let kv_cache = cache.kv_cache.get("key").unwrap();
+        let kv_cache = cache.kv_cache.get("kvkey").unwrap();
 
-        assert_eq!(kv_cache, "value");
+        assert_eq!(kv_cache, "kvval");
     }
 }

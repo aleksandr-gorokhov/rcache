@@ -3,8 +3,9 @@ use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::cache_service::ResolvePayload;
+use crate::SetPayload;
 
+#[derive(Debug)]
 struct CacheValue {
     value: String,
     timestamp: u64,
@@ -16,11 +17,11 @@ pub enum InMemoryCacheError {
     EmptyKey,
 }
 
-pub(crate) trait TimeSource {
+pub trait TimeSource {
     fn now(&self) -> u64;
 }
 
-pub(crate) struct SystemTimeSource;
+pub struct SystemTimeSource;
 
 impl TimeSource for SystemTimeSource {
     fn now(&self) -> u64 {
@@ -53,7 +54,7 @@ impl<T: TimeSource> InMemoryCache<T> {
         values.get(key).map(|value| value.value.to_owned())
     }
 
-    pub fn resolve<'b>(&mut self, payload: ResolvePayload) -> Result<String, InMemoryCacheError> {
+    pub fn set(&mut self, payload: SetPayload) -> Result<String, InMemoryCacheError> {
         if payload.key.is_empty() {
             return Err(InMemoryCacheError::EmptyKey);
         }
@@ -66,6 +67,7 @@ impl<T: TimeSource> InMemoryCache<T> {
         if *hits % 50000 == 0 {
             values.retain(|_, value| now < value.timestamp + value.ttl);
         } else if let Some(cached_value) = values.get(payload.key) {
+            println!("{:?}", now >= cached_value.timestamp + cached_value.ttl);
             if now >= cached_value.timestamp + cached_value.ttl {
                 values.remove(payload.key);
             }
@@ -73,7 +75,7 @@ impl<T: TimeSource> InMemoryCache<T> {
 
         Ok(values
             .entry(payload.key.to_owned())
-            .or_insert_with(|| CacheValue {
+            .or_insert(CacheValue {
                 value: payload.value.to_owned(),
                 timestamp: now,
                 ttl: payload.ttl,
@@ -158,7 +160,7 @@ mod tests {
     fn it_should_return_value() {
         let mut cache = InMemoryCache::new();
         let result = cache
-            .resolve(ResolvePayload {
+            .set(SetPayload {
                 key: "key",
                 value: "value",
                 ttl: 1,
@@ -172,7 +174,7 @@ mod tests {
         let mut cache = InMemoryCache::new();
         assert_eq!(cache.get_values_length(), 0);
         cache
-            .resolve(ResolvePayload {
+            .set(SetPayload {
                 key: "key",
                 value: "value",
                 ttl: 1,
@@ -187,13 +189,13 @@ mod tests {
     fn it_should_cache_value_for_ttl() {
         let mut cache = InMemoryCache::new();
         cache
-            .resolve(ResolvePayload {
+            .set(SetPayload {
                 key: "key",
                 value: "value",
                 ttl: 1,
             })
             .expect("Should not fail");
-        let cached = cache.resolve(ResolvePayload {
+        let cached = cache.set(SetPayload {
             key: "key",
             value: "value123",
             ttl: 1,
@@ -205,14 +207,14 @@ mod tests {
     fn it_should_change_value_on_expiry() {
         let mut cache = InMemoryCache::new_with_time_source(MockTimeSource::new(0));
         cache
-            .resolve(ResolvePayload {
+            .set(SetPayload {
                 key: "key",
                 value: "value",
                 ttl: 1,
             })
             .expect("Should not fail");
         cache.time_source.advance(2);
-        let cached = cache.resolve(ResolvePayload {
+        let cached = cache.set(SetPayload {
             key: "key",
             value: "value123",
             ttl: 1,
@@ -227,14 +229,14 @@ mod tests {
         let mut cache = InMemoryCache::new();
         for i in 0..100000 {
             cache
-                .resolve(ResolvePayload {
+                .set(SetPayload {
                     key: &format!("key{}", i),
                     value: &format!("value{}", i),
                     ttl: 100,
                 })
                 .expect("Should not fail");
         }
-        let result = cache.resolve(ResolvePayload {
+        let result = cache.set(SetPayload {
             key: "key30",
             value: "value",
             ttl: 100,
@@ -252,7 +254,7 @@ mod tests {
     fn it_should_get_rid_off_all_expired_keys_periodically() {
         let mut cache = InMemoryCache::new_with_time_source(MockTimeSource::new(0));
         cache
-            .resolve(ResolvePayload {
+            .set(SetPayload {
                 key: "key49999",
                 value: "value49999",
                 ttl: 1,
@@ -261,7 +263,7 @@ mod tests {
         cache.set_hits(49999);
         cache.time_source.advance(2);
         cache
-            .resolve(ResolvePayload {
+            .set(SetPayload {
                 key: "key50000",
                 value: "value50000",
                 ttl: 1,
@@ -274,7 +276,7 @@ mod tests {
     #[test]
     fn it_should_return_error_when_key_is_empty() {
         let mut cache = InMemoryCache::new();
-        let result = cache.resolve(ResolvePayload {
+        let result = cache.set(SetPayload {
             key: "",
             value: "value",
             ttl: 1,
