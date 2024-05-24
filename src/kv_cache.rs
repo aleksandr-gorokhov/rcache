@@ -1,4 +1,6 @@
-use redis::{Client, Commands, Connection, FromRedisValue, RedisError};
+use redis::{Client, Commands, Connection, RedisError};
+
+use crate::cache_service::ResolvePayload;
 
 struct KvCache {
     con: Connection,
@@ -14,12 +16,6 @@ impl From<RedisError> for KvError {
     fn from(err: RedisError) -> Self {
         KvError::CommandFailed(err)
     }
-}
-
-struct ResolvePayload<'a> {
-    key: &'a str,
-    value: &'a str,
-    ttl: u64,
 }
 
 impl KvCache {

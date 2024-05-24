@@ -4,6 +4,8 @@ use std::net::TcpStream;
 
 use in_memory_cache::InMemoryCache;
 
+use crate::cache_service::ResolvePayload;
+
 mod cache_service;
 mod in_memory_cache;
 mod kv_cache;
@@ -31,7 +33,11 @@ fn handle_connection(mut stream: TcpStream) {
 
             let mut cache = InMemoryCache::new();
 
-            let value = cache.resolve(path, format!("Unicorn {path}").as_str(), 10);
+            let value = cache.resolve(ResolvePayload {
+                key: path,
+                value: format!("Unicorn {path}").as_str(),
+                ttl: 10,
+            });
             let response = format!("HTTP/1.1 200 OK\r\n\r\n{}", value.unwrap());
             stream.write_all(response.as_bytes()).unwrap();
             stream.flush().unwrap();
