@@ -12,7 +12,7 @@ struct CacheValue {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum CacheError {
+pub enum InMemoryCacheError {
     EmptyKey,
 }
 
@@ -48,9 +48,14 @@ pub struct InMemoryCache<T: TimeSource = SystemTimeSource> {
 }
 
 impl<T: TimeSource> InMemoryCache<T> {
-    pub fn resolve<'b>(&mut self, payload: ResolvePayload) -> Result<String, CacheError> {
+    pub fn get(&mut self, key: &str) -> Option<String> {
+        let values = self.values.lock().unwrap();
+        values.get(key).map(|value| value.value.to_owned())
+    }
+
+    pub fn resolve<'b>(&mut self, payload: ResolvePayload) -> Result<String, InMemoryCacheError> {
         if payload.key.is_empty() {
-            return Err(CacheError::EmptyKey);
+            return Err(InMemoryCacheError::EmptyKey);
         }
 
         let mut hits = self.hits.lock().unwrap();
@@ -274,6 +279,6 @@ mod tests {
             value: "value",
             ttl: 1,
         });
-        assert!(matches!(result, Err(CacheError::EmptyKey)));
+        assert!(matches!(result, Err(InMemoryCacheError::EmptyKey)));
     }
 }

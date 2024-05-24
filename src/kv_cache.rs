@@ -2,12 +2,12 @@ use redis::{Client, Commands, Connection, RedisError};
 
 use crate::cache_service::ResolvePayload;
 
-struct KvCache {
+pub struct KvCache {
     con: Connection,
 }
 
 #[derive(Debug)]
-enum KvError {
+pub enum KvError {
     CommandFailed(RedisError),
     ConnectionNotEstablished,
 }
@@ -19,7 +19,7 @@ impl From<RedisError> for KvError {
 }
 
 impl KvCache {
-    fn new(url: &str) -> Result<KvCache, KvError> {
+    pub fn new(url: &str) -> Result<KvCache, KvError> {
         let client = Client::open(url).map_err(|_| KvError::ConnectionNotEstablished)?;
         let con = client
             .get_connection()
@@ -27,7 +27,7 @@ impl KvCache {
         Ok(KvCache { con })
     }
 
-    fn resolve(&mut self, payload: ResolvePayload) -> Result<String, KvError> {
+    pub fn resolve(&mut self, payload: ResolvePayload) -> Result<String, KvError> {
         let res: String = self.con.get(payload.key).unwrap_or_else(|_| "".to_string());
         if res.is_empty() {
             self.con
@@ -36,6 +36,14 @@ impl KvCache {
             return Ok(payload.value.to_string());
         }
         Ok(res)
+    }
+
+    pub fn get(&mut self, key: &str) -> Option<String> {
+        let res: String = self.con.get(key).unwrap_or_else(|_| "".to_string());
+        if res.is_empty() {
+            return None;
+        }
+        Some(res)
     }
 }
 
@@ -47,11 +55,6 @@ mod tests {
         fn set(&mut self, key: &str, value: &str) -> Result<(), KvError> {
             self.con.set(key, value).map_err(KvError::CommandFailed)?;
             Ok(())
-        }
-
-        fn get(&mut self, key: &str) -> Result<String, KvError> {
-            let res: String = self.con.get(key).unwrap_or_else(|_| "".to_string());
-            Ok(res)
         }
 
         fn unset(&mut self, key: &str) -> Result<(), KvError> {
@@ -118,11 +121,11 @@ mod tests {
                 ttl: 1,
             })
             .expect("Should not fail");
-        let res = cache.get(key).expect("Should not fail");
+        let res = cache.get(key).unwrap();
         assert_eq!(res, "42");
         std::thread::sleep(std::time::Duration::from_secs(2));
-        let res = cache.get(key).expect("Should not fail");
+        let res = cache.get(key);
         teardown(key);
-        assert_eq!(res, "");
+        assert!(matches!(res, None));
     }
 }
