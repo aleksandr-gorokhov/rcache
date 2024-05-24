@@ -24,10 +24,10 @@ pub enum CacheServiceError {
 }
 
 impl CacheService {
-    pub fn new(ttl: u64) -> CacheService {
+    pub fn new(ttl: u64, redis_url: &str) -> CacheService {
         CacheService {
             in_memory_cache: InMemoryCache::new(),
-            kv_cache: KvCache::new("redis://127.0.0.1:6379").expect("KvCache creation failed"),
+            kv_cache: KvCache::new(redis_url).expect("KvCache creation failed"),
             ttl,
         }
     }
@@ -75,14 +75,14 @@ mod tests {
 
     #[test]
     fn it_should_resolve_value() {
-        let mut cache = CacheService::new(10);
+        let mut cache = CacheService::new(10, "redis://127.0.0.1:6379");
         let value = cache.resolve("key", || "value".to_string()).unwrap();
         assert_eq!(value, "value");
     }
 
     #[test]
     fn it_should_resolve_value_from_memory() {
-        let mut cache = CacheService::new(10);
+        let mut cache = CacheService::new(10, "redis://127.0.0.1:6379");
         cache
             .in_memory_cache
             .set(SetPayload {
@@ -98,7 +98,7 @@ mod tests {
 
     #[test]
     fn it_should_resolve_value_from_kv() {
-        let mut cache = CacheService::new(10);
+        let mut cache = CacheService::new(10, "redis://127.0.0.1:6379");
         cache
             .kv_cache
             .set(SetPayload {
@@ -114,7 +114,7 @@ mod tests {
 
     #[test]
     fn should_set_value_to_memory_cache() {
-        let mut cache = CacheService::new(10);
+        let mut cache = CacheService::new(10, "redis://127.0.0.1:6379");
         cache.resolve("memkey", || "value".to_string()).unwrap();
         cache.kv_cache.unset("memkey").unwrap();
         let in_memory_value = cache.in_memory_cache.get("memkey").unwrap();
@@ -124,7 +124,7 @@ mod tests {
 
     #[test]
     fn should_set_value_to_kv_cache() {
-        let mut cache = CacheService::new(10);
+        let mut cache = CacheService::new(10, "redis://127.0.0.1:6379");
         cache.resolve("kvkey", || "kvval".to_string()).unwrap();
 
         let kv_cache = cache.kv_cache.get("kvkey").unwrap();
