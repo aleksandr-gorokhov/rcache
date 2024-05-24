@@ -1,7 +1,10 @@
 [package]
-name = "cache-service"
-version = "0.1.0"
+name = "cache_service"
+version = "1.0.0"
 edition = "2021"
+license = "MIT"
+description = "Cache service based on Redis and in-memory cache"
+authors = ["puwka <gorokhov.inc@gmail.com>"]
 
 [dependencies]
 redis = "0.25.3"
