@@ -4,6 +4,7 @@ use std::net::TcpStream;
 
 use in_memory_cache::InMemoryCache;
 
+mod cache_service;
 mod in_memory_cache;
 mod kv_cache;
 
